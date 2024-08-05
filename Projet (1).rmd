@@ -1,0 +1,291 @@
+---
+title: "Projet en analyse des données"
+author: "Tounsi Ayetallah"
+date: "2023-04-28"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+Dans ce projet, nous analysons les données d'un formulaire de voyage pour comprendre les motivations, les buts et les accommodations recherchées par les individus lorsqu'ils planifient un voyage. En utilisant des techniques d'analyse de données, nous cherchons à découvrir des insights qui peuvent aider à mieux comprendre les préférences de leurs clients et à offrir des produits et services adaptés.
+Dans le cadre de ce projet, nous avons utilisé plusieurs techniques d'analyse de données pour mieux comprendre les préférences et les attentes des voyageurs. Tout d'abord, nous avons appliqué une analyse en composantes principales (ACP) pour explorer la structure des données et identifier les dimensions les plus importantes. Ensuite, nous avons effectué une classification pour regrouper les individus en différents segments en fonction de leurs motivations, de leurs buts et de leurs préférences en matière d'hébergement. Enfin, nous avons réalisé une analyse factorielle des correspondances (AFC) pour étudier les relations entre les différentes variables du questionnaire. 
+
+# Statistique descriptive 
+
+### Importation de la base
+```{r}
+library(readxl)
+Formulaire<- read_excel("C:/Users/MSI/Desktop/analyse/formulaire.xlsx")
+```
+
+## Présentation de la population ayant répondu à l’enquête:
+
+### Répartition par genre:
+
+#### Camembert de sexe :
+
+```{r pressure, echo=FALSE}
+library(pacman)
+library(dplyr)
+library(lessR)
+
+library(factoextra)
+Homme=sum(Formulaire$sexe == "homme")
+Femme=sum(Formulaire$sexe =="femme")
+
+n=c(Homme,Femme)
+Sexe=as.factor(c("Homme","Femme"))
+
+gender=as.data.frame(cbind(Sexe,n))
+PieChart(x=Sexe,y=n,gender,fill =c("#89b0ae","#ffd6ba"),
+         values_color="Black",hole=0,main=" Répartition par genre")
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+### Interpretation :
+Dans notre étude, nous avons constaté que sur les 30 personnes ayant répondu au questionnaire, 48% sont des hommes et 50% sont des femmes.
+
+### Répartition par catégorie:
+
+Diagramme en battons des specialités:
+
+```{r}
+colors=c("#555b6e","#89b0ae","#bee3db","#ffd6ba")
+b <- barplot(table(Formulaire$catégorie),col=colors,ylim=c(0,50))
+```
+On remarque que la majorité des repondants sont des étudiants/lycéens tant que les chômeurs représentent une minorité.
+
+### Les préférances selon la catégorie:
+```{r}
+ggplot(Formulaire, aes(catégorie, fill=préférance))+
+geom_bar(position = position_dodge(width=0.5))
+```
+
+Les résultats de notre étude ont montré que les étudiants, lycéens et employés ont majoritairement exprimé une préférence pour les destinations naturelles, tandis que les chômeurs ont montré une préférence pour les zones urbaines et la vie en ville.
+
+# Analyse des composantes principales :
+
+Dans cette partie On va effectuer nos études sur les colonnes qui contiennent des informations concernant les motivations des voyager.
+
+```{r}
+X=as.matrix(Formulaire[,c(8:19)])
+head(X)
+
+```
+## 1.Pertinence de l’ACP:
+```{r}
+library(corrplot)
+M<-cor(X)
+library(RColorBrewer)
+corrplot(M, type="upper", order="hclust", 
+         col=brewer.pal(n=11, name="RdBu"))
+```
+## Choix de nombre d’axes:
+
+```{r}
+
+update.packages("htmltools")
+library(FactoMineR)
+library(factoextra)
+res.pca=PCA(X,ncp = 4,graph= F)
+head(res.pca$eig)
+```
+```{r}
+fviz_eig(res.pca ,addlabels = TRUE)
+```
+
+## Interpretation :
+
+1-Critère de Kaiser : on remarque qu’il y a 4 axes dont les valeurs propres sont supérieures à 1 donc on peut garder 4 axes. 
+
+2-Critère du taux d’inertie cumulée : On remarque que le taux d’inertie cumule des 3 premiers axes est de 66.7% qui est un taux important .
+
+3-Critère du coude : On remarque que le coude se trouve au niveau du deuxième axe.
+
+Il est important de prendre en compte tous ces critères pour prendre une décision éclairée sur le nombre d'axes à retenir. Dans ce cas, il pourrait être judicieux de retenir les 2 premiers axes tout en gardant à l'esprit que le troisième axe peut également contenir des informations utiles pour l'analyse.
+
+
+
+### Interpretation de la carte des variables :
+
+```{r}
+res.pca$var$cos2
+```
+```{r}
+fviz_pca_var(res.pca, col.var = "cos2")+
+  scale_color_gradient2(low="white" ,mid="blue" ,
+                        high="red", midpoint = 0.6)+
+  theme_minimal()
+
+```
+
+
+#### Interpretation :
+
+L'axe 1 est fortement corrélé avec les motivations "Pour faire des rencontres", "Tester de nouveaux aliments", "Soulagement du stress", "Pour se dépayser" et "Divertissement". On peut interpréter cet axe comme étant l'axe des motivations sociales et de détente.
+
+L'axe 2 est quant à lui fortement corrélé avec les motivations "Pour decouvrir le monde", "Aventure", "Réaliser vos rêves" et "Se cultiver". Cet axe peut être interprété comme étant l'axe des motivations de découverte et d'enrichissement personnel.
+
+En combinant ces deux axes, on peut dire que les motivations des personnes interrogées peuvent être réparties en deux grandes catégories : les motivations sociales et de détente d'une part, et les motivations de découverte et d'enrichissement personnel d'autre part.
+
+Il est important de noter que les autres axes ont des valeurs propres inférieures à 1, ce qui signifie qu'ils expliquent moins de variance que les deux premiers axes et sont donc moins importants dans l'analyse.
+
+### Interpretation de la carte des individus :
+
+```{r}
+fviz_pca_ind(res.pca,geom = "text",col.ind="cos2")+
+scale_color_gradient2(low="blue", mid="white", 
+                      high="red", midpoint=0.5)
+```
+
+#### classification :
+
+On commence par le tracage du dendrogramme qui être utilisé pour déterminer le nombre optimal de clusters à sélectionner en fonction de la distance entre les objets.
+
+## Dendogramme de clustering :
+
+```{r}
+c<-dist(scale(Formulaire[8:19]),method="euclidean")
+h<- hclust(c, method="ward.D2")
+plot(h, hang = -1, cex =0.6)
+
+
+```
+
+## Arbre hiérarchique :
+
+```{r}
+library(FactoMineR)
+res.HCPC <- HCPC(res.pca, nb.clust = 3, consol = TRUE, graph = FALSE)
+plot.HCPC(res.HCPC, choice = 'tree', title = 'Arbre hiérarchique')
+```
+Après avoir analysé le dendrogramme et l'arbre hiérarchique , il semble qu'il y ait trois clusters distincts :
+
+-Classe 1 : Cette classe est caractérisée par des personnes qui recherchent des activités divertissantes, qui cherchent à découvrir le monde, à se dépayser, à se retrouver entre amis et qui cherchent à soulager leur stress. Ils cherchent à s'amuser tout en découvrant de nouvelles choses. On pourrait appeler cette classe "les explorateurs".
+
+-Classe 2 : Cette classe est caractérisée par des personnes qui cherchent avant tout à s'amuser et à se divertir. Ils ne sont pas très intéressés par la réalisation de leurs rêves. On pourrait appeler cette classe "les fêtards".
+
+-Classe 3 : Cette classe est caractérisée par des personnes qui cherchent avant tout des aventures, qui cherchent à réaliser leurs rêves, à découvrir le monde, à se soulager du stress et à se divertir. On pourrait appeler cette classe "les aventuriers".
+
+```{r}
+
+fviz <- fviz_cluster(res.HCPC, geom = "point", palette = "jco", 
+                    ggtheme = theme_minimal())
+kmeans_res <- kmeans(fviz$data, centers = 3, nstart = 25)
+res.HCPC$clustering <- kmeans_res$cluster
+
+fviz_cluster(res.HCPC, geom = "point", palette = "jco", 
+             ggtheme = theme_minimal(), main = "Factor map ")
+```
+
+```{r}
+plot.HCPC(res.HCPC,choice = '3D.map', ind.names=FALSE, centres.plot=FALSE, angles=60,title='Hierarchical tree on the factor map')
+```
+
+
+## description des classes par les variables :
+```{r}
+res.HCPC$desc.var
+```
+
+Le tableau montre que la variable de cluster est fortement corrélée aux variables quantitatives, avec des valeurs d'Eta2 allant de 0,23 à 0,70. Les variables "Pour.decouvrir.le.monde", "Divertissement" et "Soulagement.du.stress" ont une forte corrélation avec le clustering, ce qui signifie que ces variables sont importantes pour différencier les groupes. Les variables "Aventure" et "Pour s’amuser" ont également une corrélation importante avec le clustering. En revanche, les variables "Pour se dépayser" et "Pour se retrouver entre amis" ont une corrélation moins importante avec le clustering.
+
+# Analyse Factorielle des Correspondances
+
+### Construction du tableau croisée et des tableaux des profils:
+#### 1-data cleaning:
+
+```{r}
+dataf=cbind(Formulaire[1],Formulaire[53])
+dataf$age=as.factor(dataf$age)
+dataf$Accompagnement=as.factor(dataf$Accompagnement)
+
+head(dataf)
+```
+#### Tableau croisée des effectifs et des fréquences:
+```{r}
+tab<-table(dataf$age,dataf$Accompagnement)
+tabf=addmargins(tab)
+tabf
+```
+
+#### 2-Le tableaux des fréquences :
+```{r}
+tab_freq<-prop.table(tab)
+addmargins(prop.table(tab))
+
+```
+#### 3.Tableaux des profils :
+
+###### Profil lignes:
+
+```{r}
+library(questionr)
+lprop(tab)
+
+```
+
+Ce tableau représente la répartition des répondants selon leur situation lorsqu'ils voyagent, en fonction de leur âge et du type de compagnie. Par exemple, il montre que parmi les répondants âgés de 18 à 25 ans, 20 % voyagent en couple, 50 % en famille, 30 % entre amis et aucun d'entre eux ne voyage seul.
+
+En regardant la ligne "Ensemble", on peut voir que la plupart des répondants (44,8 %) voyagent en famille, suivis par ceux qui voyagent entre amis (27,6 %) et en couple (20,7 %). Seulement 6,9 % des répondants voyagent seuls.
+
+Cela peut indiquer que la plupart des répondants préfèrent voyager en groupe ou en famille plutôt que seul. Les personnes âgées de 18 à 25 ans semblent être plus susceptibles de voyager en famille ou entre amis, tandis que celles âgées de 25 à 35 ans ont tendance à être plus équilibrées entre les différents types de compagnie de voyage. Les répondants de plus de 35 ans ont tendance à voyager en famille.
+
+###### Profil colonnes:
+```{r}
+cprop(tab)
+```
+Pour la catégorie "A deux - en couple", la majorité des répondants ont indiqué avoir voyagé en couple et sont concentrés dans la tranche d'âge [18-25[ (66,7%) suivi de la tranche [25-35[ (33,3%).
+
+Pour la catégorie "En famille", la majorité des répondants ont indiqué avoir voyagé en famille et sont concentrés dans la tranche d'âge [18-25[ (76,9%) suivi de la tranche [35-60[ (23,1%).
+
+Pour la catégorie "Entre amis", la majorité des répondants ont indiqué avoir voyagé entre amis et sont concentrés dans la tranche d'âge [18-25[ (75%) suivi de la tranche d'âge [12-18[ (25%).
+
+Pour la catégorie "Seul", la majorité des répondants ont indiqué avoir voyagé seul et sont concentrés dans la tranche d'âge [25-35[ (100%).
+
+En termes généraux, la tranche d'âge [18-25[ est la plus représentée pour toutes les catégories de voyages.
+
+#### 4- Test du chi-2:
+```{r}
+test<-chisq.test(tab)
+test
+```
+
+Le résultat d'un test du Chi² pour l'Analyse Factorielle des Correspondances (AFC) indique que la probabilité d'obtenir une distribution de fréquence aussi extrême que celle observée dans les données est très faible (p-value = 0,002185), ce qui suggère que l'AFC est pertinente pour décrire la relation entre les variables qualitatives analysées.
+
+#### 6.Choix de nombre d’axes :
+```{r}
+res.ca<-CA(tab,graph=F)
+eig.val <- res.ca$eig
+round(res.ca$eig,3)
+
+```
+Le taux d’inertie cumulé du premier plan étant 97.14%, il est clair que l’on doit se contenter des 2 premiers axes.
+
+#### 7.Représentation et interprétation de la carte 
+
+```{r}
+fviz_ca_biplot(res.ca)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
